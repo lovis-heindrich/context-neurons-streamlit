@@ -32,24 +32,32 @@ def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, yaxis=None, 
     
 
 def plot_barplot(data: list[list[float]], names: list[str], short_names = None, xlabel="", ylabel="", title="", 
-                 width=1000, yaxis=None, show=True, legend=True):
+                 width=1000, yaxis=None, show=True, legend=True, yrange=None):
     means = np.mean(data, axis=1)
     stds = np.std(data, axis=1)
 
     fig = go.Figure()
     if short_names is None:
         short_names = names
-    for i in range(len(names)):
-        fig.add_trace(go.Bar(
-            x=[short_names[i]],
-            y=[means[i]],
-            error_y=dict(
-                type='data',
-                array=[stds[i]],
-                visible=True
-            ),
-            name=names[i]
-        ))
+    if len(data[0]) > 1:
+        for i in range(len(names)):
+            fig.add_trace(go.Bar(
+                x=[short_names[i]],
+                y=[means[i]],
+                error_y=dict(
+                    type='data',
+                    array=[stds[i]],
+                    visible=True
+                ),
+                name=names[i]
+            ))
+    else:
+        for i in range(len(names)):
+            fig.add_trace(go.Bar(
+                x=[short_names[i]],
+                y=[means[i]],
+                name=names[i]
+            ))
     
     fig.update_layout(
         title=title,
@@ -60,6 +68,9 @@ def plot_barplot(data: list[list[float]], names: list[str], short_names = None, 
         width=width,
         showlegend=legend
     )
+
+    if yrange is not None:
+        fig.update_yaxes(range=yrange)
     
     if show:
         fig.show()
