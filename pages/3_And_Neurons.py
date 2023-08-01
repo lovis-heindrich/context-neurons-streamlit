@@ -21,7 +21,7 @@ run_select = st.sidebar.selectbox(
 )
 
 if run_select == "Run 1":
-    file_name_append = "_0"
+    file_name_append = "_0000"
 elif run_select == "Run 2":
     file_name_append = "_1000"
 else:
@@ -84,7 +84,7 @@ st.markdown("""
             """)
 
 highlight_mode = st.selectbox(label="Select the type of AND neurons to highlight",
-                              options=["Two Features", "Single Features", "Current Token", "Previous Token", "Context Neuron"], index=0)
+                              options=["Two Features", "Single Features", "Current Token", "Previous Token", "Context Neuron", "Merge Tokens"], index=0)
 
 negative_and_neurons = st.checkbox("Show negative AND neurons", value=False)
 if negative_and_neurons:
