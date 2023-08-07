@@ -1,6 +1,11 @@
+import torch
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.colors import qualitative
+from haystack_utils import get_mlp_activations, get_neurons_by_layer
+from transformer_lens import HookedTransformer
+import scipy.stats as stats
 
 def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, yaxis=None, hover_data=None, show_legend=True, plot=True):
     
@@ -32,9 +37,12 @@ def line(x, xlabel="", ylabel="", title="", xticks=None, width=800, yaxis=None, 
     
 
 def plot_barplot(data: list[list[float]], names: list[str], short_names = None, xlabel="", ylabel="", title="", 
-                 width=1000, yaxis=None, show=True, legend=True, yrange=None):
+                 width=1000, yaxis=None, show=True, legend=True, yrange=None, confidence_interval=False):
     means = np.mean(data, axis=1)
-    stds = np.std(data, axis=1)
+    if confidence_interval:
+        errors = [stats.sem(d)*stats.t.ppf((1+0.95)/2., len(d)-1) for d in data]
+    else:
+        errors = np.std(data, axis=1)
 
     fig = go.Figure()
     if short_names is None:
@@ -46,7 +54,7 @@ def plot_barplot(data: list[list[float]], names: list[str], short_names = None, 
                 y=[means[i]],
                 error_y=dict(
                     type='data',
-                    array=[stds[i]],
+                    array=[errors[i]],
                     visible=True
                 ),
                 name=names[i]
@@ -76,3 +84,45 @@ def plot_barplot(data: list[list[float]], names: list[str], short_names = None, 
         fig.show()
     else: 
         return fig
+
+
+def color_binned_histogram(data, ranges, labels, title):
+    # Check that ranges and labels are of the same length
+    if len(ranges) != len(labels):
+        raise ValueError("Length of ranges and labels should be the same")
+
+    fig = go.Figure()
+
+    # Plot data in ranges with specific colors
+    for r, label, color in zip(ranges, labels, qualitative.Plotly):
+        hist_data = [i for i in data if r[0] <= i < r[1]]
+        fig.add_trace(go.Histogram(x=hist_data, 
+                                    name=label,
+                                    marker_color=color))
+    
+    # Plot data outside ranges with a gray color
+    out_range_data = [i for i in data if not any(r[0] <= i < r[1] for r in ranges)]
+    fig.add_trace(go.Histogram(x=out_range_data, 
+                                name='Outside Ranges',
+                                marker_color='gray'))
+
+    fig.update_layout(barmode='stack',
+                      xaxis_title='Value',
+                      yaxis_title='Count',
+                      title=title,
+                      width=1200)
+    fig.show()
+
+
+def plot_neuron_acts(
+        model: HookedTransformer, data: list[str], neurons: list[tuple[int, int]], disable_tqdm=True, 
+        width=700
+) -> None:
+    '''Plot activation histograms for each neuron specified'''
+    neurons_by_layer = get_neurons_by_layer(neurons)
+    for layer, layer_neurons in neurons_by_layer.items():
+        acts = get_mlp_activations(data, layer, model, neurons=torch.tensor(layer_neurons), mean=False, 
+                                   disable_tqdm=disable_tqdm).cpu()
+        for i, neuron in enumerate(layer_neurons):
+            fig = px.histogram(acts[:, i], title=f"L{layer}N{neuron}", width=width)
+            fig.show()

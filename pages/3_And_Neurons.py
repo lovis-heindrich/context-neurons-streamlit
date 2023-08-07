@@ -77,6 +77,23 @@ for column in select_names:
 
 st.dataframe(display_df.round(2))
 
+
+# Diffs plot
+diff_select = st.selectbox(label="Select the type of differences to display",
+                        options=["Two Features", "Single Features", "Current Token", "Previous Token", "Context Neuron", "Merge Tokens"], index=0)
+
+
+sort = st.checkbox("Sort by difference", value=True)
+
+neuron_loss_diffs = df[diff_select + " (diff)"].tolist()
+
+if sort:
+    neuron_loss_diffs.sort()
+
+plot = plotting_utils.line(neuron_loss_diffs, width=650, xlabel="Neuron", ylabel="Loss change", title="Loss change from ablating individual MLP5 neurons", show_legend=False, plot=False)
+st.plotly_chart(plot)
+
+
 st.markdown("""
             ### Comparing neuron-wise ablation loss increase
 
@@ -111,13 +128,31 @@ st.markdown("""
 keys = list(ablation_losses[option][hook_select][scale_select].keys())
 select_mode = st.selectbox(label="Select whether to use all AND neurons or only the neurons where (YYY>others)",
                               options=keys, index=0)
+num_keys = list(ablation_losses[option][hook_select][scale_select][select_mode].keys())
+all_option = num_keys.pop(0)
+num_keys.append(all_option)
 
+num_neurons = st.select_slider(
+    "Select the number of neurons to ablate",
+    options=num_keys)
+#st.selectbox(label="Select the number of neurons to ablate", options=num_keys, index=0)
 
-names = list(ablation_losses[option][hook_select][scale_select][select_mode].keys())
+max_loss = -1000
+min_loss = 1000
+for key in num_keys:
+    losses = ablation_losses[option][hook_select][scale_select][select_mode][num_neurons].values()
+    max_loss = max(max_loss, max(losses))
+    min_loss = min(min_loss, min(losses))
+min_loss = min(min_loss, 0)
+max_loss += 0.3
+
+names = list(ablation_losses[option][hook_select][scale_select][select_mode][num_neurons].keys())
 short_names = [name.split(" ")[0] for name in names]
-loss_values = [[ablation_losses[option][hook_select][scale_select][select_mode][name]] for name in names]
+loss_values = [[ablation_losses[option][hook_select][scale_select][select_mode][num_neurons][name]] for name in names]
 plot = plotting_utils.plot_barplot(loss_values, names,
                             short_names=short_names, ylabel="Last token loss",
                             title=f"Loss increase when patching groups of neurons (ablation mode: YYN)",
-                            width=750, show=False)
+                            width=750, show=False, yrange=(min_loss, max_loss))
 st.plotly_chart(plot)
+
+
